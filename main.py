@@ -2,6 +2,7 @@
 from sql import sqlite3, load_db, update_identity, insert_identity, insert_request
 from shlex import split
 import select
+import time
 import io
 
 '''
@@ -94,16 +95,14 @@ def main():
     db = load_db('./db/logviewer.db', './db/schema.sql')
 
     print('setting up logs...')
-    identities, requests = setup_logs(db, logfile)
+    identities, _ = setup_logs(db, logfile)
 
     print('waiting on new connections...')
 
-    rs, _, _ = select.select([logfile], [], [])
-
     try:
-        while True:
-            if logfile in rs:
-                log = parse_log_line(logfile.readline())
+        while logfile.readable():
+            if line := logfile.readline():
+                log = parse_log_line(line)
                 
                 identities = handle_identity(db, identities, log)                
                 ip, status = log['ip'], log['status']
@@ -123,6 +122,8 @@ def main():
                 print(f'   Timestamp: {log['date'] + ', ' + log['time']}')
                 print(f'       Route: \033[36m{log['request']['route']}\033[0m')
                 print('')
+            else:
+                time.sleep(0.1) # without this the CPU explodes
     except KeyboardInterrupt:
         print('goodbye')
     finally:
