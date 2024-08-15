@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 from shlex import split
+import sql
+from sql import sqlite3
 
 '''
 Jon Parker Brooks - 8/13/24
@@ -15,18 +17,41 @@ Things I'm interested in:
 '''
 
 
+HTTP_METHODS = [
+    'GET',
+    'PUT',
+    'POST',
+    'HEAD',
+    'TRACE',
+    'PATCH',
+    'DELETE',
+    'OPTIONS'
+]
+
+
+def parse_http_request(text: str):
+    keys = ('method', 'route', 'proto')
+    parts = text.split(' ')
+    
+    if len(parts) != 3:
+        parts = ('-', ) * 3
+
+    return dict(zip(keys, parts))
+
+
 def parse_log_line(text: str) -> dict:
-    ip, _, _, timestamp, _, request, status, size, _, agent = split(text)
+    ip, _, _, timestamp, _, payload, status, size, _, agent = split(text.strip())
     timestamp = timestamp.lstrip('[')
     date, time = timestamp.split(':', 1)
     return {
         'ip': ip, 
         'date': date,
         'time': time,
-        'request': request,
-        'status': status,
-        'size': size,
-        'agent': agent
+        'size': int(size),
+        'agent': agent,
+        'status': int(status),
+        'payload': payload,
+        'request': parse_http_request(payload)
     }
 
 
@@ -39,48 +64,62 @@ def normalize_bytes(number: int) -> str:
         return f'{round(number / 1000)} KB'
 
 
-def open_log_file(path: str) -> list:
-    with open(path, 'rt') as file:
-        
-        total_bytes = 0
-        logs, days, ips = [], {}, {}
-
-        for line in file.readlines():
-        
-            log = parse_log_line(line.strip())
-            date, ip = log['date'], log['ip']
-            total_bytes += int(log['size'])
-            
-            if days.get(date) is not None:
-                days[date].append(log)
-            else:
-                days[date] = []
-
-            if ips.get(ip) is not None:
-                ips[ip].append(log)
-            else:
-                ips[ip] = []
-
-            logs.append(log)
-        
-        return logs, days, ips, total_bytes
+def update_identity(db: sqlite3.Connection, identities: dict, log: dict, commit: bool = True) -> dict:
+    timestamp = log['date'] + ', ' + log['time']
+    ip = log['ip']
+    if identities.get(ip):
+        identities[ip]['lastseen'] = timestamp
+        identities[ip]['requests'] += 1
+        sql.update_identity(db, ip, identities[ip], commit=commit)
+    else:
+        identities[ip] = {
+            'requests': 1,
+            'lastseen': timestamp,
+            'created': timestamp
+        }
+        sql.insert_identity(db, ip, identities[ip], commit=commit)
+    return identities
 
 
-def ip_addresses_summary(ips):
-    for ip in sorted(ips, key=lambda x: len(ips[x]), reverse=True):
-        yield ip, len(ips[ip])
+def setup_logs(db: sqlite3.Connection, path: str) -> tuple:
+
+    identities, requests = {}, {}
+
+    with open('access.log', 'r') as file:
+        for log in (parse_log_line(line) for line in file.readlines()):
+            identities = update_identity(db, identities, log, commit=False)
+            sql.insert_request(db, log, commit=False)
+    
+    db.commit()
+
+    return identities, requests
 
 
 def main():
+    print('loading database...')
+    db = sql.load_db('./db/logviewer.db', './db/schema.sql')
 
-    print('loading log file...')
+    identities, requests = setup_logs(db, 'access.log')
 
-    #logs, days, ips, total_bytes = open_log_file('access.log')
+    with open('access.log', 'rt') as file:
+        while file.readable():
+            if line := file.readline():
+                log = parse_log_line(line)
+                
+                identities = update_identity(db, identities, log)
+                
+                status = log['status']
+                route = log['request']['route']
+                ip = log['ip']
 
-    with open('/var/log/nginx/access.log') as file:
-        while True:
-            if file.readable():
-                text = file.read()
+                if status == 200:
+                    print(f'{ip} just accessed {route}')
+                else:
+                    print(f'{ip} just tried to access {route} but got a {status} code')
+
+                print(f'{ip} requests:', identities[ip]['requests'])
+
+    
 
 
 if __name__ == "__main__":
