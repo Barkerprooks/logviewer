@@ -123,7 +123,7 @@ def main():
                     status = f'\033[31m{status}\033[0m'
 
                 if log['request']['method'] == 'POST':
-                    print(f'[ \033[33mPOST\033[0m ][ {status} ][ {ip.rjust(15, ' ')} ]')
+                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[33mPOST\033[0m ]')
                 else:
                     print(f'[ {status} ][ {ip.rjust(15, ' ')} ]')
 
