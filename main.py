@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from sql import sqlite3, load_db, update_identity, insert_identity, insert_request
 from shlex import split
-import select
 import time
 import io
 
