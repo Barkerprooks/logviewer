@@ -81,14 +81,13 @@ def update_identity(db: sqlite3.Connection, identities: dict, log: dict, commit:
     return identities
 
 
-def setup_logs(db: sqlite3.Connection, path: str) -> tuple:
+def setup_logs(db: sqlite3.Connection, file) -> tuple:
 
     identities, requests = {}, {}
 
-    with open('access.log', 'r') as file:
-        for log in (parse_log_line(line) for line in file.readlines()):
-            identities = update_identity(db, identities, log, commit=False)
-            sql.insert_request(db, log, commit=False)
+    for log in (parse_log_line(line) for line in file.readlines()):
+        identities = update_identity(db, identities, log, commit=False)
+        sql.insert_request(db, log, commit=False)
     
     db.commit()
 
@@ -96,31 +95,49 @@ def setup_logs(db: sqlite3.Connection, path: str) -> tuple:
 
 
 def main():
+    print('opening access log...')
+    file = open('access.log', 'rt')
+    
     print('loading database...')
     db = sql.load_db('./db/logviewer.db', './db/schema.sql')
 
-    identities, requests = setup_logs(db, 'access.log')
+    print('setting up logs...')
+    identities, requests = setup_logs(db, file)
 
-    with open('access.log', 'rt') as file:
+    print('waiting on new connections...')
+    try:
         while file.readable():
             if line := file.readline():
                 log = parse_log_line(line)
                 
                 identities = update_identity(db, identities, log)
                 
-                status = log['status']
-                route = log['request']['route']
                 ip = log['ip']
+                route = log['request']['route']
+                status = log['status']
+                requests = str(identities[ip]['requests'])
 
-                if status == 200:
-                    print(f'{ip} just accessed {route}')
+                if status < 400:
+                    status = f'\033[32m{status}\033[0m'
                 else:
-                    print(f'{ip} just tried to access {route} but got a {status} code')
+                    status = f'\033[31m{status}\033[0m'
 
-                print(f'{ip} requests:', identities[ip]['requests'])
+                if log['request']['method'] == 'POST':
+                    print(f'[ \033[33mPOST\033[0m ][ {status} ][ {ip.rjust(15, ' ')} ]')
+                else:
+                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ]')
+
+                print(f'IP Request #: \033[34m{requests}\033[0m')
+                print(f'  User-Agent: {log['agent']}')
+                print(f'   Timestamp: {log['date'] + ', ' + log['time']}')
+                print(f'       Route: \033[36m{route}\033[0m')
+                print('')
+    except KeyboardInterrupt:
+        print()
+        print('shutting down')
+
+    file.close()
 
     
-
-
 if __name__ == "__main__":
     main()
