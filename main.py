@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+from sql import sqlite3, load_db, update_identity, insert_identity, insert_request
 from shlex import split
-import sql
-from sql import sqlite3
+import select
+import io
 
 '''
 Jon Parker Brooks - 8/13/24
@@ -15,18 +16,6 @@ Things I'm interested in:
 - list any and every POST that happens
 - total bytes sent
 '''
-
-
-HTTP_METHODS = [
-    'GET',
-    'PUT',
-    'POST',
-    'HEAD',
-    'TRACE',
-    'PATCH',
-    'DELETE',
-    'OPTIONS'
-]
 
 
 def parse_http_request(text: str):
@@ -64,30 +53,32 @@ def normalize_bytes(number: int) -> str:
         return f'{round(number / 1000)} KB'
 
 
-def update_identity(db: sqlite3.Connection, identities: dict, log: dict, commit: bool = True) -> dict:
+def handle_identity(db: sqlite3.Connection, identities: dict, log: dict, commit: bool = True) -> dict:
     timestamp = log['date'] + ', ' + log['time']
     ip = log['ip']
+    
     if identities.get(ip):
         identities[ip]['lastseen'] = timestamp
         identities[ip]['requests'] += 1
-        sql.update_identity(db, ip, identities[ip], commit=commit)
+        update_identity(db, ip, identities[ip], commit=commit)
     else:
         identities[ip] = {
             'requests': 1,
             'lastseen': timestamp,
             'created': timestamp
         }
-        sql.insert_identity(db, ip, identities[ip], commit=commit)
+        insert_identity(db, ip, identities[ip], commit=commit)
+
     return identities
 
 
-def setup_logs(db: sqlite3.Connection, file) -> tuple:
+def setup_logs(db: sqlite3.Connection, logfile: io.TextIOWrapper) -> tuple:
 
     identities, requests = {}, {}
 
-    for log in (parse_log_line(line) for line in file.readlines()):
-        identities = update_identity(db, identities, log, commit=False)
-        sql.insert_request(db, log, commit=False)
+    for log in (parse_log_line(line) for line in logfile.readlines()):
+        identities = handle_identity(db, identities, log, commit=False)
+        insert_request(db, log, commit=False)
     
     db.commit()
 
@@ -95,27 +86,27 @@ def setup_logs(db: sqlite3.Connection, file) -> tuple:
 
 
 def main():
+
     print('opening access log...')
-    file = open('/var/log/nginx/access.log', 'rt')
+    logfile = open('/var/log/nginx/access.log', 'rt')
     
     print('loading database...')
-    db = sql.load_db('./db/logviewer.db', './db/schema.sql')
+    db = load_db('./db/logviewer.db', './db/schema.sql')
 
     print('setting up logs...')
-    identities, requests = setup_logs(db, file)
+    identities, requests = setup_logs(db, logfile)
 
     print('waiting on new connections...')
+
+    rs, _, _ = select.select([logfile], [], [])
+
     try:
-        while file.readable():
-            if line := file.readline():
-                log = parse_log_line(line)
+        while True:
+            if logfile in rs:
+                log = parse_log_line(logfile.readline())
                 
-                identities = update_identity(db, identities, log)
-                
-                ip = log['ip']
-                route = log['request']['route']
-                status = log['status']
-                requests = str(identities[ip]['requests'])
+                identities = handle_identity(db, identities, log)                
+                ip, status = log['ip'], log['status']
 
                 if status < 400:
                     status = f'\033[32m{status}\033[0m'
@@ -127,16 +118,15 @@ def main():
                 else:
                     print(f'[ {status} ][ {ip.rjust(15, ' ')} ]')
 
-                print(f'IP Request #: \033[34m{requests}\033[0m')
+                print(f'IP Request #: \033[34m{identities[ip]['requests']}\033[0m')
                 print(f'  User-Agent: {log['agent']}')
                 print(f'   Timestamp: {log['date'] + ', ' + log['time']}')
-                print(f'       Route: \033[36m{route}\033[0m')
+                print(f'       Route: \033[36m{log['request']['route']}\033[0m')
                 print('')
     except KeyboardInterrupt:
-        print()
-        print('shutting down')
-
-    file.close()
+        print('goodbye')
+    finally:
+        logfile.close()
 
     
 if __name__ == "__main__":
