@@ -75,12 +75,12 @@ def main():
 
     print('loading log file...')
 
-    logs, days, ips, total_bytes = open_log_file('access.log')
+    #logs, days, ips, total_bytes = open_log_file('access.log')
 
-    for i, (ip, visits) in enumerate(ip_addresses_summary(ips)):
-        if i > 20:
-            break
-        print(ip + '\t', visits)
+    with open('/var/log/nginx/access.log') as file:
+        while True:
+            if file.readable():
+                text = file.read()
 
 
 if __name__ == "__main__":
