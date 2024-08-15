@@ -96,7 +96,7 @@ def setup_logs(db: sqlite3.Connection, file) -> tuple:
 
 def main():
     print('opening access log...')
-    file = open('access.log', 'rt')
+    file = open('/var/log/nginx/access.log', 'rt')
     
     print('loading database...')
     db = sql.load_db('./db/logviewer.db', './db/schema.sql')
