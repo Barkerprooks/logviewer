@@ -1,4 +1,5 @@
 import sqlite3
+import os
 
 '''
 Jon Parker Brooks - 8/15/24
@@ -11,9 +12,14 @@ We need to:
 '''
 
 def load_db(db_path: str, schema_path: str):
+    
+    os.unlink(db_path) # we rebuild the database each time we run. probably not super efficient
+
     connection = sqlite3.connect(db_path)
+    
     with open(schema_path, 'rt') as file:
         connection.executescript(file.read())
+    
     return connection
 
 
@@ -35,11 +41,18 @@ def insert_request(db: sqlite3.Connection, request: dict, commit: bool = True):
         size
     ))
 
+    # as a double measure insert the relevent info into the user-agent db
+    db.execute('INSERT INTO identities VALUES (?, ?)', (
+        ip,
+        agent
+    ))
+
     if commit:
         db.commit()
 
 
 def insert_identity(db: sqlite3.Connection, ip: str, stats: dict, commit: bool = False):
+
     requests, lastseen, created = stats.values()
 
     db.execute('INSERT OR IGNORE INTO identities VALUES (?, ?, ?, ?)', (
@@ -54,6 +67,7 @@ def insert_identity(db: sqlite3.Connection, ip: str, stats: dict, commit: bool =
 
 
 def update_identity(db: sqlite3.Connection, ip: str, stats: dict, commit: bool = False):
+    
     requests, lastseen, _ = stats.values()
 
     db.execute('UPDATE identities SET requests = ?, lastseen = ? WHERE ip = ?', (
@@ -64,3 +78,7 @@ def update_identity(db: sqlite3.Connection, ip: str, stats: dict, commit: bool =
 
     if commit:
         db.commit()
+
+
+def get_top_identities():
+    ...

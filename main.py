@@ -2,7 +2,9 @@
 from sql import sqlite3, load_db, update_identity, insert_identity, insert_request
 from shlex import split
 import time
+import sys
 import io
+import os
 
 '''
 Jon Parker Brooks - 8/13/24
@@ -18,7 +20,11 @@ Things I'm interested in:
 '''
 
 
-def parse_http_request(text: str):
+DEFAULT_NGINX_LOGFILE_PATH = '/var/log/nginx/access.log'
+
+
+def parse_http_request(text: str) -> dict:
+    
     keys = ('method', 'route', 'proto')
     parts = text.split(' ')
     
@@ -28,10 +34,12 @@ def parse_http_request(text: str):
     return dict(zip(keys, parts))
 
 
-def parse_log_line(text: str) -> dict:
-    ip, _, _, timestamp, _, payload, status, size, _, agent = split(text.strip())
+def parse_log(line: list) -> dict:
+    
+    ip, _, _, timestamp, _, payload, status, size, _, agent = split(line.strip())
     timestamp = timestamp.lstrip('[')
     date, time = timestamp.split(':', 1)
+
     return {
         'ip': ip, 
         'date': date,
@@ -45,6 +53,7 @@ def parse_log_line(text: str) -> dict:
 
 
 def normalize_bytes(number: int) -> str:
+    
     if number > 1000000000:
         return f'{round(number / 1000000000)} GB'
     if number > 1000000:
@@ -54,8 +63,8 @@ def normalize_bytes(number: int) -> str:
 
 
 def handle_identity(db: sqlite3.Connection, identities: dict, log: dict, commit: bool = True) -> dict:
-    timestamp = log['date'] + ', ' + log['time']
-    ip = log['ip']
+    
+    ip, timestamp = log['ip'], log['date'] + ', ' + log['time']
     
     if identities.get(ip):
         identities[ip]['lastseen'] = timestamp
@@ -73,10 +82,10 @@ def handle_identity(db: sqlite3.Connection, identities: dict, log: dict, commit:
 
 
 def setup_logs(db: sqlite3.Connection, logfile: io.TextIOWrapper) -> tuple:
-
+    
     identities, requests = {}, {}
 
-    for log in (parse_log_line(line) for line in logfile.readlines()):
+    for log in (parse_log(line) for line in logfile.readlines()):
         identities = handle_identity(db, identities, log, commit=False)
         insert_request(db, log, commit=False)
     
@@ -87,8 +96,14 @@ def setup_logs(db: sqlite3.Connection, logfile: io.TextIOWrapper) -> tuple:
 
 def main():
 
+    if not os.path.isfile(DEFAULT_NGINX_LOGFILE_PATH):
+        print('could not find logfile')
+        exit(0)
+    
+    logfile_path = sys.argv[1] if len(sys.argv) == 2 else DEFAULT_NGINX_LOGFILE_PATH
+
     print('opening access log...')
-    logfile = open('/var/log/nginx/access.log', 'rt')
+    logfile = open(logfile_path,'rt')
     
     print('loading database...')
     db = load_db('./db/logviewer.db', './db/schema.sql')
@@ -97,24 +112,23 @@ def main():
     identities, _ = setup_logs(db, logfile)
 
     print('waiting on new connections...')
-
     try:
         while logfile.readable():
             if line := logfile.readline():
-                log = parse_log_line(line)
+                log = parse_log(line)
                 
                 identities = handle_identity(db, identities, log)                
-                ip, status = log['ip'], log['status']
+                ip, status, method = log['ip'], log['status'], log['request']['method']
 
                 if status < 400:
                     status = f'\033[32m{status}\033[0m'
                 else:
                     status = f'\033[31m{status}\033[0m'
 
-                if log['request']['method'] == 'POST':
-                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[33mPOST\033[0m ]')
+                if method == 'POST':
+                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[33mPOST    \033[0m ]')
                 else:
-                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ]')
+                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[32m{method.rjust(8, ' ')}\033[0m')
 
                 print(f'IP Request #: \033[34m{identities[ip]['requests']}\033[0m')
                 print(f'  User-Agent: {log['agent']}')
