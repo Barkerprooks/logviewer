@@ -42,7 +42,7 @@ def insert_request(db: sqlite3.Connection, request: dict, commit: bool = True):
     ))
 
     # as a double measure insert the relevent info into the user-agent db
-    db.execute('INSERT INTO identities VALUES (?, ?)', (
+    db.execute('INSERT INTO user_agents VALUES (?, ?)', (
         ip,
         agent
     ))
