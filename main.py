@@ -126,7 +126,7 @@ def main():
                     status = f'\033[31m{status}\033[0m'
 
                 if method == 'POST':
-                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[33mPOST    \033[0m ]')
+                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[33mPOST  \033[0m ]')
                 else:
                     print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[32m{method.ljust(7, ' ')}\033[0m]')
 
