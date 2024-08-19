@@ -128,7 +128,7 @@ def main():
                 if method == 'POST':
                     print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[33mPOST    \033[0m ]')
                 else:
-                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[32m{method.rjust(8, ' ')}\033[0m')
+                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[32m{method.ljust(7, ' ')}\033[0m]')
 
                 print(f'IP Request #: \033[34m{identities[ip]['requests']}\033[0m')
                 print(f'  User-Agent: {log['agent']}')
