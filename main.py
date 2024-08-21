@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 from sql import sqlite3, load_db, update_identity, insert_identity, insert_request
 from shlex import split
 import time
@@ -126,9 +127,9 @@ def main():
                     status = f'\033[31m{status}\033[0m'
 
                 if method == 'POST':
-                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[33mPOST  \033[0m ]')
+                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ] \033[33mPOST  \033[0m')
                 else:
-                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ][ \033[32m{method.ljust(7, ' ')}\033[0m]')
+                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ] \033[32m{method.ljust(7, ' ')}\033[0m')
 
                 print(f'IP Request #: \033[34m{identities[ip]['requests']}\033[0m')
                 print(f'  User-Agent: {log['agent']}')
