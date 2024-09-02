@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-from sql import sqlite3, load_db, update_identity, insert_identity, insert_request
+from sql import load_db, insert_request, insert_address, insert_user_agent, update_address
 from shlex import split
-import time
 import sys
-import io
-import os
+
 
 '''
 Jon Parker Brooks - 8/13/24
@@ -17,12 +15,19 @@ Things I'm interested in:
 - IP addresses visited + frequency + total visits
 - top 3 Most viewed pages + top 3 IPs visiting them
 - list any and every POST that happens
-- total bytes sent
+- total bytes sent/recv by a user
+
+v2: 9/2/24
+- find a way to use a custom log format to make my code cleaner
+  - $remote_addr "$time_iso8601" "$request" $status $bytes_sent "$http_user_agent" "$request_body"
+  - ip timestamp request status bytes agent & body are the only things relevant to my service for now
 '''
 
 
-DEFAULT_NGINX_LOGFILE_PATH = '/var/log/nginx/access.log'
+CUSTOM_LOGFILE_PATH = sys.argv[1] if len(sys.argv) == 2 else '/var/log/nginx/website.log'
 
+
+# v1 -> v2 functions
 
 def parse_http_request(text: str) -> dict:
     
@@ -30,27 +35,9 @@ def parse_http_request(text: str) -> dict:
     parts = text.split(' ')
     
     if len(parts) != 3:
-        parts = ('-', ) * 3
+        parts = ('-', ) * 3 # if unparsable just display -
 
     return dict(zip(keys, parts))
-
-
-def parse_log(line: list) -> dict:
-    
-    ip, _, _, timestamp, _, payload, status, size, _, agent = split(line.strip())
-    timestamp = timestamp.lstrip('[')
-    date, time = timestamp.split(':', 1)
-
-    return {
-        'ip': ip, 
-        'date': date,
-        'time': time,
-        'size': int(size),
-        'agent': agent,
-        'status': int(status),
-        'payload': payload,
-        'request': parse_http_request(payload)
-    }
 
 
 def normalize_bytes(number: int) -> str:
@@ -63,86 +50,45 @@ def normalize_bytes(number: int) -> str:
         return f'{round(number / 1000)} KB'
 
 
-def handle_identity(db: sqlite3.Connection, identities: dict, log: dict, commit: bool = True) -> dict:
-    
-    ip, timestamp = log['ip'], log['date'] + ', ' + log['time']
-    
-    if identities.get(ip):
-        identities[ip]['lastseen'] = timestamp
-        identities[ip]['requests'] += 1
-        update_identity(db, ip, identities[ip], commit=commit)
-    else:
-        identities[ip] = {
-            'requests': 1,
-            'lastseen': timestamp,
-            'created': timestamp
-        }
-        insert_identity(db, ip, identities[ip], commit=commit)
-
-    return identities
+def parse_custom_log(line: bytes) -> dict:
+    return dict(
+        zip(
+            ( # keys for values from line
+                'ip',
+                'created', # timestamp 
+                'request', 
+                'response', # response status (200, 404, etc) 
+                'bytes', # length of bytes in request 
+                'user_agent',
+                'body'
+            ), # values (contents of line)
+            split(line.decode('utf-8', 'replace').strip())
+        )
+    )
 
 
-def setup_logs(db: sqlite3.Connection, logfile: io.TextIOWrapper) -> tuple:
-    
-    identities, requests = {}, {}
+def v2():
 
-    for log in (parse_log(line) for line in logfile.readlines()):
-        identities = handle_identity(db, identities, log, commit=False)
-        insert_request(db, log, commit=False)
-    
-    db.commit()
+    db = load_db('./db/testing.db', './db/schema_v2.sql')
+    visits = {}
 
-    return identities, requests
+    with open(CUSTOM_LOGFILE_PATH, 'rb') as file:
+        for line in file.readlines():
+            request = parse_custom_log(line)
+            ip, timestamp, agent = request['ip'], request['created'], request['user_agent']
 
-
-def main():
-
-    if not os.path.isfile(DEFAULT_NGINX_LOGFILE_PATH):
-        print('could not find logfile')
-        exit(0)
-    
-    logfile_path = sys.argv[1] if len(sys.argv) == 2 else DEFAULT_NGINX_LOGFILE_PATH
-
-    print('opening access log...')
-    logfile = open(logfile_path,'rt')
-    
-    print('loading database...')
-    db = load_db('./db/logviewer.db', './db/schema.sql')
-
-    print('setting up logs...')
-    identities, _ = setup_logs(db, logfile)
-
-    print('waiting on new connections...')
-    try:
-        while logfile.readable():
-            if line := logfile.readline():
-                log = parse_log(line)
-                
-                identities = handle_identity(db, identities, log)                
-                ip, status, method = log['ip'], log['status'], log['request']['method']
-
-                if status < 400:
-                    status = f'\033[32m{status}\033[0m'
-                else:
-                    status = f'\033[31m{status}\033[0m'
-
-                if method == 'POST':
-                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ] \033[33mPOST  \033[0m')
-                else:
-                    print(f'[ {status} ][ {ip.rjust(15, ' ')} ] \033[32m{method.ljust(7, ' ')}\033[0m')
-
-                print(f'IP Request #: \033[34m{identities[ip]['requests']}\033[0m')
-                print(f'  User-Agent: {log['agent']}')
-                print(f'   Timestamp: {log['date'] + ', ' + log['time']}')
-                print(f'       Route: \033[36m{log['request']['route']}\033[0m')
-                print('')
+            if visits.get(ip):
+                visits[ip] += 1
+                update_address(db, ip, visits[ip], timestamp)
             else:
-                time.sleep(0.1) # without this the CPU explodes
-    except KeyboardInterrupt:
-        print('goodbye')
-    finally:
-        logfile.close()
+                visits[ip] = 1
+                insert_address(db, ip, timestamp)
 
-    
+            insert_user_agent(db, agent, ip)
+            insert_request(db, request)
+        db.commit()
+    db.close()
+
+
 if __name__ == "__main__":
-    main()
+    v2()

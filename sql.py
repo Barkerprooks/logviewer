@@ -13,7 +13,8 @@ We need to:
 
 def load_db(db_path: str, schema_path: str):
     
-    os.unlink(db_path) # we rebuild the database each time we run. probably not super efficient
+    if os.path.isfile(db_path):
+        os.unlink(db_path) # we rebuild the database each time we run. probably not super efficient
 
     connection = sqlite3.connect(db_path)
     
@@ -23,62 +24,19 @@ def load_db(db_path: str, schema_path: str):
     return connection
 
 
-def insert_request(db: sqlite3.Connection, request: dict, commit: bool = True):
-    # i know... shadowing the name 'request' is confusing... but i like the way it looks
-    ip, date, time, size, agent, status, payload, request = request.values()
-    method, route, proto = request.values()
+# v2
 
-    db.execute('INSERT INTO requests VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (
-        ip, 
-        agent, 
-        status, 
-        method, 
-        route, 
-        proto, 
-        payload, 
-        date, 
-        time, 
-        size
-    ))
-
-    # as a double measure insert the relevent info into the user-agent db
-    db.execute('INSERT INTO user_agents VALUES (?, ?)', (
-        ip,
-        agent
-    ))
-
-    if commit:
-        db.commit()
+def insert_request(db: sqlite3.Connection, request: dict):
+    db.execute('INSERT INTO requests VALUES (?,?,?,?,?,?,?)', tuple(request.values()))
 
 
-def insert_identity(db: sqlite3.Connection, ip: str, stats: dict, commit: bool = False):
-
-    requests, lastseen, created = stats.values()
-
-    db.execute('INSERT OR IGNORE INTO identities VALUES (?, ?, ?, ?)', (
-        ip,
-        requests,
-        lastseen,
-        created
-    ))
-
-    if commit:
-        db.commit()
+def insert_address(db: sqlite3.Connection, ip: str, timestamp: str):
+    db.execute('INSERT OR IGNORE INTO addresses VALUES (?,?,?,?)', (ip, 1, timestamp, timestamp))
 
 
-def update_identity(db: sqlite3.Connection, ip: str, stats: dict, commit: bool = False):
-    
-    requests, lastseen, _ = stats.values()
-
-    db.execute('UPDATE identities SET requests = ?, lastseen = ? WHERE ip = ?', (
-        requests,
-        lastseen,
-        ip
-    ))
-
-    if commit:
-        db.commit()
+def insert_user_agent(db: sqlite3.Connection, agent: str, ip: str):
+    db.execute('INSERT OR IGNORE INTO user_agents VALUES (?,?)', (agent, ip))
 
 
-def get_top_identities():
-    ...
+def update_address(db: sqlite3.Connection, address: str, visits: int, timestamp: str):
+    db.execute('UPDATE addresses SET visits = ?, updated = ? WHERE ip = ?', (visits, timestamp, address))
