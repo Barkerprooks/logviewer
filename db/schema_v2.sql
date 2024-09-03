@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS addresses (
     ip TEXT UNIQUE,
-    visits INTEGER,
     updated TEXT,
     created TEXT
 );
