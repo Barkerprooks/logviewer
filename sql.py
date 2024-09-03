@@ -54,21 +54,39 @@ def initialize_db(db_path: str, schema_path: str, log_path: str):
 
 # query data
 
-def _get_last_n_hours_requests(db: sqlite3.Connection, hours: int) -> tuple:
-    return db.execute("SELECT * FROM requests WHERE DATE(created) = DATE('now', '- ? hour')", (hours ,)).fetchall()
+def _get_all_last_n_hours(db: sqlite3.Connection, hours: int) -> tuple:
+    return tuple(db.execute("SELECT * FROM requests WHERE DATETIME(created) >= DATETIME('now', '-' || ? || ' hours')", (hours ,)).fetchall())
 
 
-def _get_total_address_visits(db: sqlite3.Connection, ip: str) -> tuple:
-    return db.execute("SELECT *, (SELECT COUNT(*) FROM requests WHERE ip = ?) AS visits FROM addresses where ip = ?", (ip, ip)).fetchone()
+def _get_last_n_hours(db: sqlite3.Connection, ip: str, hours: int) -> tuple:
+    return tuple(db.execute("SELECT * FROM requests WHERE DATETIME(created) >= DATETIME('now', '-' || ? || ' hours') AND ip = ?", (hours, ip)).fetchall())
+
+
+def _get_address_details(db: sqlite3.Connection, ip: str) -> tuple:
+    return tuple(db.execute('SELECT *, (SELECT COUNT(*) FROM requests WHERE ip = ?) AS visits FROM addresses where ip = ?', (ip, ip)).fetchone() or ())
+
+
+def _get_address_user_agents(db: sqlite3.Connection, ip: str) -> tuple:
+    return tuple(row[0] for row in db.execute('SELECT user_agent FROM user_agents WHERE ip = ?', (ip, )).fetchall())
 
 
 def query_db(db_path: str, query: str, **kwargs: dict) -> tuple:
     db = sqlite3.connect(db_path)
+    result = ()
 
-    if query == 'total_address_visits':
-        return _get_total_address_visits(db, kwargs['ip'])
-
-    if query == 'last_n_hours':
-        return _get_last_n_hours_requests(db, kwargs['hours'] if not isinstance(kwargs['hours'], int) else 24)
+    if query == 'all_last_n_hours':
+        hours = kwargs.get('hours', 24)
+        print(f'+ returning all requests from the last {hours} hour(s)')
+        result = _get_all_last_n_hours(db, hours)
+    elif query == 'last_n_hours':
+        ip, hours = kwargs.get('ip', ''), kwargs.get('hours', 24)
+        print(f'+ returning all requests from the last {hours} hour(s) from {ip}')
+        result = _get_last_n_hours(db, ip, hours)
+    elif query == 'address_details':
+        result = _get_address_details(db, ip=kwargs.get('ip', ''))
+    elif query == 'address_user_agents':
+        result = _get_address_user_agents(db, ip=kwargs.get('ip', ''))
 
     db.close()
+
+    return result

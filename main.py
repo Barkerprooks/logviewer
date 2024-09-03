@@ -62,4 +62,5 @@ if __name__ == "__main__":
 
     initialize_db(args.database, args.schema, args.log)
 
-    
+    for row in query_db(args.database, 'last_n_hours', ip='193.233.233.29', hours=24):
+        print(row)
