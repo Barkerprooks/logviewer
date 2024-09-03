@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 
 argument_parser = ArgumentParser()
 argument_parser.add_argument('-db', '--database', type=str, default='./db/logviewer.db')
-argument_parser.add_argument('-s', '--schema', type=str, default='./db/schema_v2.sql')
+argument_parser.add_argument('-s', '--schema', type=str, default='./db/schema.sql')
 argument_parser.add_argument('-l', '--log', type=str, default='/var/log/nginx/website.log')
 
 args = argument_parser.parse_args()
