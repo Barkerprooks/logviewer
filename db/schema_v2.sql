@@ -19,6 +19,5 @@ CREATE TABLE IF NOT EXISTS requests (
     bytes INTEGER,
     user_agent TEXT,
     body TEXT,
-    FOREIGN KEY(ip) REFERENCES addresses(ip),
-    FOREIGN KEY(user_agent) REFERENCES user_agents(user_agent)
+    FOREIGN KEY(ip) REFERENCES addresses(ip)
 );

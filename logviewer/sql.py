@@ -1,4 +1,4 @@
-from log import parse_log_lines
+from logviewer.log import parse_log_lines
 import sqlite3
 import os
 
@@ -74,14 +74,9 @@ def query_db(db_path: str, query: str, **kwargs: dict) -> tuple:
     db = sqlite3.connect(db_path)
     result = ()
 
-    if query == 'all_last_n_hours':
-        hours = kwargs.get('hours', 24)
-        print(f'+ returning all requests from the last {hours} hour(s)')
-        result = _get_all_last_n_hours(db, hours)
-    elif query == 'last_n_hours':
-        ip, hours = kwargs.get('ip', ''), kwargs.get('hours', 24)
-        print(f'+ returning all requests from the last {hours} hour(s) from {ip}')
-        result = _get_last_n_hours(db, ip, hours)
+    if query == 'last_n_hours':
+        ip, hours = kwargs.get('ip', None), kwargs.get('hours', 24)
+        result = _get_all_last_n_hours(db, hours) if ip is None else _get_last_n_hours(db, ip, hours)
     elif query == 'address_details':
         result = _get_address_details(db, ip=kwargs.get('ip', ''))
     elif query == 'address_user_agents':

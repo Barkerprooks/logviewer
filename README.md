@@ -1,6 +1,5 @@
 # Log Viewer
 A python script for tailing and displaying useful stats for a structured log file
-
 ## Nginx
 Put this in the `http` section under your config file. usually found under `/etc/nginx/nginx.conf`.
 You can replace the word `website` with something more fitting to the service
@@ -24,3 +23,4 @@ server {
     }
 }
 ```
+### INDEV v0.0.0
