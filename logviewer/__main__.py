@@ -72,10 +72,10 @@ def build_addresses_output(selected: int, offset: int, tui: list, tui_list_lengt
             except IndexError:
                 print('-', end=' ' * (w - 1), flush=True)
         elif y == h - 3:
-            line = f'request: {selected + offset} / {len(tui)}'
+            line = f'address: {selected + offset} / {len(tui)}'
             print(('=' * (w - len(line) - 7)), line, end=' =====', flush=True)
         elif y == h - 2:
-            line = '1: all, 2: 1hr, 3: 6hr, 4: 12hr, 5: 24hr, 6: address '
+            line = '1: all, 2: 1hr, 3: 6hr, 4: 12hr, 5: 24hr, 6: requests '
             print(line, end=' ' * (w - len(line)), flush=True)
         elif y == h - 1:
             line = 'q: quit, w: up, s: down '
