@@ -43,7 +43,9 @@ def handle_input(key: str, selected: int, offset: int, tui_max_length: int, tui_
         else:
             return selected - 1, 0
     elif key == 's':
-        if selected < tui_list_length - 1:
+        if tui_list_length > tui_max_length:
+            return 1, 0
+        elif selected < tui_list_length - 1:
             return selected + 1, offset
         elif selected + offset < tui_max_length - 1:
             return selected, offset + 1
@@ -57,26 +59,27 @@ def handle_input(key: str, selected: int, offset: int, tui_max_length: int, tui_
 def build_addresses_output(selected: int, offset: int, tui: list, tui_list_length: int, w: int, h: int):
     for y in range(h):
         if y == 0:
-            print(('#' * (w - len(args.log) - 7)), args.log, end=' #####', flush=True)
+            print(('=' * (w - len(args.log) - 7)), args.log, end=' =====', flush=True)
         elif y < tui_list_length:
             try:
                 ip, updated, created = tui[y - 1 + offset]
                 updated = datetime.fromisoformat(created).astimezone(ZoneInfo('America/Chicago')).strftime('%m/%d/%y %I:%M:%S %p')
                 created = datetime.fromisoformat(created).astimezone(ZoneInfo('America/Chicago')).strftime('%m/%d/%y %I:%M:%S %p')
-                line = f'{ip.ljust(15, ' ')} - last seen: {updated}, first visit: {created}'
+                line = f'{ip.ljust(15 if selected == y else 17, ' ')} - last: {updated}, first: {created}'
                 if selected == y:
-                    line = '> \33[34m' + line + '\33[0m'
+                    line = '> ' + line
                 print(line, end=' ' * (w - len(line)), flush=True)
             except IndexError:
-                print('...', end=' ' * (w - 3), flush=True)
-        elif y == tui_list_length:
-            print('#' * w, end='', flush=True)
+                print('-', end=' ' * (w - 1), flush=True)
+        elif y == h - 3:
+            line = f'request: {selected + offset} / {len(tui)}'
+            print(('=' * (w - len(line) - 7)), line, end=' =====', flush=True)
         elif y == h - 2:
-            mapping_line = '##### 1=all,2=1hr,3=6hr,4=12hr,5=24hr,6=requests '
-            print(mapping_line, end='#' * (w - len(mapping_line)), flush=True)
+            line = '1: all, 2: 1hr, 3: 6hr, 4: 12hr, 5: 24hr, 6: address '
+            print(line, end=' ' * (w - len(line)), flush=True)
         elif y == h - 1:
-            summary_line = f'##### address: {selected + offset} / {len(tui)} ##### q=quit,w=up,s=down '
-            print(summary_line, end='#' * (w - len(summary_line)), flush=True)
+            line = 'q: quit, w: up, s: down '
+            print(line, end=' ' * (w - len(line)), flush=True)
         else:
             print(' ' * w, end='', flush=True)
         print(f'\33[{w}D\33[1B', end='', flush=True)
@@ -87,30 +90,31 @@ def build_requests_output(selected: int, offset: int, tui: list, tui_list_length
     
     for y in range(h):
         if y == 0:
-            print(('#' * (w - len(args.log) - 7)), args.log, end=' #####', flush=True)
+            print(('=' * (w - len(args.log) - 7)), args.log, end=' =====', flush=True)
         elif y < tui_list_length:
             try:
                 ip, created, request, response, _, _, _ = tui[y - 1 + offset]
                 method, route, _ = request.split(' ')
                 timestamp = datetime.fromisoformat(created).astimezone(ZoneInfo('America/Chicago')).strftime('%m/%d/%y %I:%M:%S %p')
                 line = f'{method.ljust(8 if selected == y else 10, ' ')} {response} - {ip.rjust(15, ' ')}'
-                if len(line + ' ' + timestamp) < w - 2:
+                if len(line + ' ' + timestamp) < w - 1:
                     line += ' ' + timestamp
-                if len(line + ' ' + route) < w - 2:
+                if len(line + ' ' + route) < w - 1:
                     line += ' ' + route
                 if selected == y:
-                    line = '> \33[34m' + line + '\33[0m'
+                    line = '> ' + line
                 print(line, end=' ' * (w - len(line)), flush=True)
             except IndexError:
-                print('...', end=' ' * (w - 3), flush=True)
-        elif y == tui_list_length:
-            print('#' * w, end='', flush=True)
+                print('-', end=' ' * (w - 1), flush=True)
+        elif y == h - 3:
+            line = f'request: {selected + offset} / {len(tui)}'
+            print(('=' * (w - len(line) - 7)), line, end=' =====', flush=True)
         elif y == h - 2:
-            mapping_line = '##### 1=all,2=1hr,3=6hr,4=12hr,5=24hr,6=address '
-            print(mapping_line, end='#' * (w - len(mapping_line)), flush=True)
+            line = '1: all, 2: 1hr, 3: 6hr, 4: 12hr, 5: 24hr, 6: address '
+            print(line, end=' ' * (w - len(line)), flush=True)
         elif y == h - 1:
-            summary_line = f'##### request: {selected + offset} / {len(tui)} ##### q=quit,w=up,s=down '
-            print(summary_line, end='#' * (w - len(summary_line)), flush=True)
+            line = 'q: quit, w: up, s: down '
+            print(line, end=' ' * (w - len(line)), flush=True)
         else:
             print(' ' * w, end='', flush=True)
         print(f'\33[{w}D\33[1B', end='', flush=True)
@@ -140,7 +144,7 @@ with Raw(sys.stdin):
                     if mode == 'all_requests' or mode == 'all_requests_last_n_hours':
                         tui.insert(0, request.values())
 
-                tui_list_length = h - (h // 3)
+                tui_list_length = h - 4
 
                 if selected >= tui_list_length: # make sure cursor is in bounds
                     selected = tui_list_length - 1
