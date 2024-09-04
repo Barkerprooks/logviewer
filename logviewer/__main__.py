@@ -97,10 +97,10 @@ def build_requests_output(selected: int, offset: int, tui: list, tui_list_length
                 method, route, _ = request.split(' ')
                 timestamp = datetime.fromisoformat(created).astimezone(ZoneInfo('America/Chicago')).strftime('%m/%d/%y %I:%M:%S %p')
                 line = f'{method.ljust(8 if selected == y else 10, ' ')} {response} - {ip.rjust(15, ' ')}'
-                if len(line + ' ' + timestamp) < w - 1:
-                    line += ' ' + timestamp
-                if len(line + ' ' + route) < w - 1:
-                    line += ' ' + route
+                if len(line + ' - ' + timestamp) < w - 1:
+                    line += ' - ' + timestamp
+                if len(line + ' - ' + route) < w - 1:
+                    line += ' - ' + route
                 if selected == y:
                     line = '> ' + line
                 print(line, end=' ' * (w - len(line)), flush=True)
