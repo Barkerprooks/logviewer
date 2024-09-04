@@ -84,6 +84,10 @@ def _get_address_requestst_last_n_hours(db: Connection, ip: str, hours: int) -> 
     return tuple(db.execute("SELECT * FROM requests WHERE DATETIME(created) >= DATETIME('now', '-' || ? || ' hours') AND ip = ? ORDER BY created DESC", (hours, ip)).fetchall())
 
 
+def _get_all_addresses(db: Connection) -> tuple:
+    return tuple(db.execute('SELECT * FROM addresses ORDER BY created DESC').fetchall())
+
+
 def _get_address_details(db: Connection, ip: str) -> tuple:
     return tuple(db.execute('SELECT *, (SELECT COUNT(*) FROM requests WHERE ip = ?) AS visits FROM addresses where ip = ?', (ip, ip)).fetchone() or ())
 
@@ -106,6 +110,8 @@ def query_db(db_path: str, query: str, **kwargs: dict) -> tuple:
         result = _get_address_requestst_last_n_hours(db, kwargs['ip'], kwargs.get('hours', 24))
     elif query == 'address_details':
         result = _get_address_details(db, kwargs['ip'])
+    elif query == 'all_addresses':
+        result = _get_all_addresses(db)
 
     db.close()
 
