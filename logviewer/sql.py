@@ -27,10 +27,6 @@ def _insert_user_agent(db: sqlite3.Connection, agent: str, ip: str):
     db.execute('INSERT OR IGNORE INTO user_agents VALUES (?,?)', (agent, ip))
 
 
-def _update_address(db: sqlite3.Connection, address: str, visits: int, timestamp: str):
-    db.execute('UPDATE addresses SET visits = ?, updated = ? WHERE ip = ?', (visits, timestamp, address))
-
-
 # setup db
 
 def initialize_db(db_path: str, schema_path: str, log_path: str):
@@ -48,6 +44,19 @@ def initialize_db(db_path: str, schema_path: str, log_path: str):
         _insert_user_agent(db, agent, ip)
         _insert_request(db, log)
     
+    db.commit()
+    db.close()
+
+
+def insert_db(db_path: str, log: dict):
+    
+    db = sqlite3.connect(db_path) # connect to hopefully existing db
+    ip, created, agent = log['ip'], log['created'], log['user_agent']
+
+    _insert_request(db, log)
+    _insert_address(db, ip, created)
+    _insert_user_agent(db, agent, ip)
+
     db.commit()
     db.close()
 
