@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from io import TextIOWrapper
 from shlex import split
 
 def parse_log(line: bytes) -> dict:
@@ -19,8 +20,6 @@ def parse_log(line: bytes) -> dict:
     )
 
 
-def parse_log_lines(path: str) -> Iterator[dict]:
-    # utility function to read a file line by line an parse it into an iterator
-    with open(path, 'rb') as file:
-        for line in file.readlines():
-            yield parse_log(line)
+def parse_log_lines(file: TextIOWrapper) -> Iterator[dict]:
+    for line in file.readlines():
+        yield parse_log(line)

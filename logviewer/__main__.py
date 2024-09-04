@@ -1,8 +1,15 @@
 from logviewer.sql import initialize_db, query_db
 from logviewer.cli import Raw, NonBlocking
+from logviewer.log import parse_log
 from argparse import ArgumentParser
+from select import select
 from time import sleep
 from sys import stdin
+from io import SEEK_END, TextIOWrapper
+
+
+def handle_input(key: str):
+    ...
 
 
 argument_parser = ArgumentParser()
@@ -12,22 +19,22 @@ argument_parser.add_argument('-l', '--log', type=str, default='/var/log/nginx/we
 
 args = argument_parser.parse_args()
 
-initialize_db(args.database, args.schema, args.log)
+log = initialize_db(args.database, args.schema, args.log)
 
 with Raw(stdin):
     with NonBlocking(stdin):
-        while 1:
-            # read new lines from log file in new thread
-            # TODO (needs to be async somehow...)
-            
-            # handle input
+        while 1: # forever (until ctrl+c)
+
+            # check if file has new things to read
+            if line := log.readline():
+                logline = parse_log(line)
+                print(logline)
+
             try:
-                key = stdin.read(1)
-                if key.isnumeric():
-                    print('\33[2J', end='')
-                    for row in query_db(args.database, 'last_n_hours', hours=int(key)):
-                        print(row)
-                    print(f'^ requests from the last {key} hour(s)')
+                if key := stdin.read(1):
+                    handle_input(key)
             except IOError:
                 print('stdin not ready')
-            sleep(.1)
+            
+            # stagger
+            sleep(.01)
