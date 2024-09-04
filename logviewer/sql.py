@@ -68,11 +68,19 @@ def insert_db(db_path: str, log: dict):
 
 # query data
 
-def _get_all_last_n_hours(db: Connection, hours: int) -> tuple:
+def _get_all_requests(db: Connection) -> tuple:
+    return tuple(db.execute('SELECT * FROM requests ORDER BY created DESC').fetchall())
+
+
+def _get_all_requests_last_n_hours(db: Connection, hours: int) -> tuple:
     return tuple(db.execute("SELECT * FROM requests WHERE DATETIME(created) >= DATETIME('now', '-' || ? || ' hours') ORDER BY created DESC", (hours ,)).fetchall())
 
 
-def _get_last_n_hours(db: Connection, ip: str, hours: int) -> tuple:
+def _get_address_requests(db: Connection, ip: str) -> tuple:
+    return tuple(db.execute('SELECT * FROM requests WHERE ip = ? ORDER BY DESC', (ip, )).fetchall())
+
+
+def _get_address_requestst_last_n_hours(db: Connection, ip: str, hours: int) -> tuple:
     return tuple(db.execute("SELECT * FROM requests WHERE DATETIME(created) >= DATETIME('now', '-' || ? || ' hours') AND ip = ? ORDER BY created DESC", (hours, ip)).fetchall())
 
 
@@ -88,13 +96,16 @@ def query_db(db_path: str, query: str, **kwargs: dict) -> tuple:
     db = connect(db_path)
     result = ()
 
-    if query == 'last_n_hours':
-        ip, hours = kwargs.get('ip', None), kwargs.get('hours', 24)
-        result = _get_all_last_n_hours(db, hours) if ip is None else _get_last_n_hours(db, ip, hours)
+    if query == 'all_requests':
+        result = _get_all_requests(db)
+    elif query == 'all_requests_last_n_hours': # by default return the last 24 hours
+        result = _get_all_requests_last_n_hours(db, kwargs.get('hours', 24))
+    elif query == 'address_requests':
+        result = _get_address_requests(db, kwargs['ip']) # crash if ip not supplied
+    elif query == 'address_requests_last_n_hours':
+        result = _get_address_requestst_last_n_hours(db, kwargs['ip'], kwargs.get('hours', 24))
     elif query == 'address_details':
-        result = _get_address_details(db, ip=kwargs.get('ip', ''))
-    elif query == 'address_user_agents':
-        result = _get_address_user_agents(db, ip=kwargs.get('ip', ''))
+        result = _get_address_details(db, kwargs['ip'])
 
     db.close()
 
