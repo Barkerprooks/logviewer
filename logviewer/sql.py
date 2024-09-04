@@ -69,11 +69,11 @@ def insert_db(db_path: str, log: dict):
 # query data
 
 def _get_all_last_n_hours(db: Connection, hours: int) -> tuple:
-    return tuple(db.execute("SELECT * FROM requests WHERE DATETIME(created) >= DATETIME('now', '-' || ? || ' hours')", (hours ,)).fetchall())
+    return tuple(db.execute("SELECT * FROM requests WHERE DATETIME(created) >= DATETIME('now', '-' || ? || ' hours') ORDER BY created DESC", (hours ,)).fetchall())
 
 
 def _get_last_n_hours(db: Connection, ip: str, hours: int) -> tuple:
-    return tuple(db.execute("SELECT * FROM requests WHERE DATETIME(created) >= DATETIME('now', '-' || ? || ' hours') AND ip = ?", (hours, ip)).fetchall())
+    return tuple(db.execute("SELECT * FROM requests WHERE DATETIME(created) >= DATETIME('now', '-' || ? || ' hours') AND ip = ? ORDER BY created DESC", (hours, ip)).fetchall())
 
 
 def _get_address_details(db: Connection, ip: str) -> tuple:
