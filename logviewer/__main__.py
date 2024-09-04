@@ -62,10 +62,10 @@ def build_addresses_output(selected: int, offset: int, tui: list, tui_list_lengt
             print(('=' * (w - len(args.log) - 7)), args.log, end=' =====', flush=True)
         elif y < tui_list_length:
             try:
-                ip, updated, created = tui[y - 1 + offset]
-                updated = datetime.fromisoformat(created).astimezone(ZoneInfo('America/Chicago')).strftime('%m/%d/%y %I:%M:%S %p')
+                ip, visits, updated, created = tui[y - 1 + offset]
+                updated = datetime.fromisoformat(updated).astimezone(ZoneInfo('America/Chicago')).strftime('%m/%d/%y %I:%M:%S %p')
                 created = datetime.fromisoformat(created).astimezone(ZoneInfo('America/Chicago')).strftime('%m/%d/%y %I:%M:%S %p')
-                line = f'{ip.ljust(15 if selected == y else 17, ' ')} - last: {updated}, first: {created}'
+                line = f'{ip.ljust(15 if selected == y else 17, ' ')} - visits: {str(visits).ljust(6, ' ')} - last: {updated} - first: {created}'
                 if selected == y:
                     line = '> ' + line
                 print(line, end=' ' * (w - len(line)), flush=True)

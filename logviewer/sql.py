@@ -21,11 +21,15 @@ def _insert_request(db: Connection, request: dict):
 
 
 def _insert_address(db: Connection, ip: str, timestamp: str):
-    db.execute('INSERT OR IGNORE INTO addresses VALUES (?,?,?)', (ip, timestamp, timestamp))
+    db.execute('INSERT OR IGNORE INTO addresses VALUES (?,1,?,?)', (ip, timestamp, timestamp))
 
 
 def _insert_user_agent(db: Connection, agent: str, ip: str):
     db.execute('INSERT OR IGNORE INTO user_agents VALUES (?,?)', (agent, ip))
+
+
+def _update_address(db: Connection, ip: str, timestamp: str, visits: int):
+    db.execute('UPDATE addresses SET visits = ?, updated = ? WHERE ip = ?', (visits, timestamp, ip))
 
 
 # setup db
@@ -40,13 +44,23 @@ def initialize_db(db_path: str, schema_path: str, log_path: str) -> TextIOWrappe
         db.executescript(file.read())
 
     log = open(log_path, 'rb')
+    visits = {}
 
     for request in parse_log_lines(log):
         ip, created, agent = request['ip'], request['created'], request['user_agent']
-        _insert_address(db, ip, created)
+
+        if visits.get(ip):
+            visits[ip] += 1
+            _update_address(db, ip, created, visits[ip])
+        else:
+            visits[ip] = 1
+            _insert_address(db, ip, created)
+
         _insert_user_agent(db, agent, ip)
         _insert_request(db, request)
     
+
+
     db.commit()
     db.close()
 
