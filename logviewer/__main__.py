@@ -96,11 +96,17 @@ def build_requests_output(selected: int, offset: int, tui: list, tui_list_length
                 ip, created, request, response, _, _, _ = tui[y - 1 + offset]
                 method, route, _ = request.split(' ')
                 timestamp = datetime.fromisoformat(created).astimezone(ZoneInfo('America/Chicago')).strftime('%m/%d/%y %I:%M:%S %p')
-                line = f'{method.ljust(8 if selected == y else 10, ' ')} {response} - {ip.rjust(15, ' ')}'
-                if len(line + ' - ' + timestamp) < w - 1:
-                    line += ' - ' + timestamp
+                line = f'{method.ljust(8 if selected == y else 10, ' ')} {response}'
+
+                if len(line + ' - ' + ip.ljust(15, ' ')) < w - 15:
+                    line = line + ' - ' + ip.ljust(15, ' ')
+
                 if len(line + ' - ' + route) < w - 1:
                     line += ' - ' + route
+
+                if len(timestamp + ' - ' + line) < w - 1:
+                    line = timestamp + ' - ' + line
+
                 if selected == y:
                     line = '> ' + line
                 print(line, end=' ' * (w - len(line)), flush=True)
@@ -144,7 +150,7 @@ with Raw(sys.stdin):
                     if mode == 'all_requests' or mode == 'all_requests_last_n_hours':
                         tui.insert(0, request.values())
 
-                tui_list_length = h - 4
+                tui_list_length = h - 3
 
                 if selected >= tui_list_length: # make sure cursor is in bounds
                     selected = tui_list_length - 1
