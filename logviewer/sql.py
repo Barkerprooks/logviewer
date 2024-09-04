@@ -85,7 +85,7 @@ def _get_address_requestst_last_n_hours(db: Connection, ip: str, hours: int) -> 
 
 
 def _get_all_addresses(db: Connection) -> tuple:
-    return tuple(db.execute('SELECT * FROM addresses ORDER BY created DESC').fetchall())
+    return tuple(db.execute('SELECT * FROM addresses ORDER BY updated DESC').fetchall())
 
 
 def _get_address_details(db: Connection, ip: str) -> tuple:
