@@ -19,22 +19,20 @@ args = argument_parser.parse_args()
 
 def handle_tui(db_path: str, key: str, tui: list, mode: str, **kwargs) -> tuple:
     if key == '1':
-        return list(query_db(db_path, 'all_requests')), 'all_requests', None
+        return list(query_db(db_path, 'all_requests')), 'all_requests'
     elif key == '2':
-        return list(query_db(db_path, 'all_requests_last_n_hours', hours=1)), 'all_requests_last_n_hours', None
+        return list(query_db(db_path, 'all_requests_last_n_hours', hours=1)), 'all_requests_last_n_hours'
     elif key == '3':
-        return list(query_db(db_path, 'all_requests_last_n_hours', hours=6)), 'all_requests_last_n_hours', None
+        return list(query_db(db_path, 'all_requests_last_n_hours', hours=6)), 'all_requests_last_n_hours'
     elif key == '4':
-        return list(query_db(db_path, 'all_requests_last_n_hours', hours=12)), 'all_requests_last_n_hours', None
+        return list(query_db(db_path, 'all_requests_last_n_hours', hours=12)), 'all_requests_last_n_hours'
     elif key == '5':
-        return list(query_db(db_path, 'all_requests_last_n_hours', hours=24)), 'all_requests_last_n_hours', None
+        return list(query_db(db_path, 'all_requests_last_n_hours', hours=24)), 'all_requests_last_n_hours'
     elif key == '6':
         if mode == 'all_requests' or mode == 'all_requests_last_n_hours':
-            return list(query_db(db_path, 'all_addresses')), 'all_addresses', None
+            return list(query_db(db_path, 'all_addresses')), 'all_addresses'
         elif mode == 'all_addresses':
-            return list(query_db(db_path, 'all_requests')), 'all_requests', None
-    elif mode == "all_addresses" and key == ' ':
-        return list(query_db(db_path, 'address_requests', ip=kwargs['ip'])), 'address_requests', kwargs['ip']
+            return list(query_db(db_path, 'all_requests')), 'all_requests'
     return tui, mode
 
 
@@ -45,10 +43,8 @@ def handle_input(key: str, selected: int, offset: int, tui_max_length: int, tui_
         else:
             return selected - 1, 0
     elif key == 's':
-        if tui_list_length > tui_max_length:
-            return 1, 0
-        elif selected < tui_list_length - 1:
-            return selected + 1, offset
+        if selected < tui_list_length - 1:
+            return (selected + 1) % (tui_max_length + 1), offset
         elif selected + offset < tui_max_length - 1:
             return selected, offset + 1
     elif key == 'q':
@@ -56,6 +52,10 @@ def handle_input(key: str, selected: int, offset: int, tui_max_length: int, tui_
     elif key.isnumeric():
         return 1, 0
     return selected, offset
+
+
+def handle_selecting(db_path: str, ip: list):
+    return list(query_db(db_path, 'address_requests', ip=ip)), ip
 
 
 def build_addresses_output(selected: int, offset: int, tui: list, tui_list_length: int, w: int, h: int):
@@ -202,7 +202,10 @@ with Raw(sys.stdin):
                 try:
                     if key := sys.stdin.read(1):
                         selected, offset = handle_input(key, selected, offset, len(tui), tui_list_length)
-                        tui, mode, ip_selected = handle_tui(args.database, key, tui, mode, ip=tui[selected]['ip'])
+                        tui, mode = handle_tui(args.database, key, tui, mode)
+                        if key == ' ':
+                            mode = 'address_requests'
+                            tui, ip_selected = handle_selecting(args.database, tui[selected - 1 + offset][0])
                 except IOError:
                     print('stdin not ready')
                     break
